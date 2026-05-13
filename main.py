@@ -1,6 +1,7 @@
 from extract.spotify_extractor import get_artists_from_csv, search_tracks, save_raw
 
-artists = get_artists_from_csv("data/01.csv")
+artists = get_artists_from_csv("data/final_limpo.csv")
+artists = artists[:5]  # só 5 para testar
 print(f"Artistas únicos encontrados: {len(artists)}")
 
 tracks = search_tracks(artists, limit=10)

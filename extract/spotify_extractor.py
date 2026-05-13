@@ -21,7 +21,7 @@ def get_spotify_client():
         client_id=os.getenv("SPOTIFY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIFY_CLIENT_SECRET")
     )
-    return spotipy.Spotify(auth_manager=auth_manager)
+    return spotipy.Spotify(auth_manager=auth_manager, requests_timeout=10)
 
 def search_tracks(artist_names: list, limit: int = 10) -> list:
     """Busca tracks por nome de artista."""
@@ -29,6 +29,7 @@ def search_tracks(artist_names: list, limit: int = 10) -> list:
     tracks = []
 
     for artist_name in artist_names:
+        print(f"A buscar: {artist_name}")
         results = sp.search(q=artist_name, type="track", limit=limit)
 
         for item in results["tracks"]["items"]:
@@ -48,11 +49,10 @@ def search_tracks(artist_names: list, limit: int = 10) -> list:
     return tracks
 
 def save_raw(data: list, filename: str, output_path: str = "data/raw/spotify_api/"):
-    """Guarda os dados brutos em JSON sem transformações."""
+    """Guarda os dados brutos em CSV sem transformações."""
     Path(output_path).mkdir(parents=True, exist_ok=True)
     filepath = Path(output_path) / filename
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    pd.DataFrame(data).to_csv(filepath, index=False)
     logging.info(f"Saved {len(data)} records to {filepath}")
 
 def get_artists_from_slices(slices_path: str) -> list:
@@ -75,7 +75,7 @@ def get_artists_from_slices(slices_path: str) -> list:
     return list(artists)
 
 def get_artists_from_csv(csv_path: str) -> list:
-    """Extrai nomes de artistas únicos do CSV do MPD."""
+    """Extrai nomes de artistas únicos do CSV."""
     df = pd.read_csv(csv_path)
     artists = df["artist_name"].dropna().unique().tolist()
     logging.info(f"Found {len(artists)} unique artists from CSV")
