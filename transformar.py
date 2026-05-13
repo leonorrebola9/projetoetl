@@ -2,7 +2,7 @@ import json
 import csv
 
 # Ler JSON
-with open('data/mpd.slice.23000-23999.json', 'r', encoding='utf-8') as file:
+with open('projetoetl/data/mpd.slice.230000-230999.json', 'r', encoding='utf-8') as file:
     dados = json.load(file)
 
 # Lista para guardar todas as músicas
