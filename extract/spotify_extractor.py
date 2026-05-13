@@ -1,77 +1,51 @@
-import requests
 import logging
-import time
 import json
+import os
 from pathlib import Path
-from config.settings import SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
+from dotenv import load_dotenv
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+import pandas as pd
 
+load_dotenv()
+
+Path("logs").mkdir(exist_ok=True)
 logging.basicConfig(
     filename="logs/extract.log",
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s"
 )
 
-def get_access_token() -> str:
-    response = requests.post(
-        "https://accounts.spotify.com/api/token",
-        data={"grant_type": "client_credentials"},
-        auth=(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)
+def get_spotify_client():
+    auth_manager = SpotifyClientCredentials(
+        client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+        client_secret=os.getenv("SPOTIFY_CLIENT_SECRET")
     )
-    response.raise_for_status()
-    token = response.json()["access_token"]
-    logging.info("Spotify access token obtained")
-    return token
+    return spotipy.Spotify(auth_manager=auth_manager)
 
-def get_audio_features(track_ids: list, token: str) -> list:
-    """Busca audio features para até 100 tracks de uma vez."""
-    url = "https://api.spotify.com/v1/audio-features"
-    headers = {"Authorization": f"Bearer {token}"}
-    
-    results = []
-    for i in range(0, len(track_ids), 100):
-        batch = track_ids[i:i+100]
-        params = {"ids": ",".join(batch)}
-        
-        response = requests.get(url, headers=headers, params=params)
-        
-        if response.status_code == 429:
-            retry_after = int(response.headers.get("Retry-After", 5))
-            logging.warning(f"Rate limited. Waiting {retry_after}s")
-            time.sleep(retry_after)
-            response = requests.get(url, headers=headers, params=params)
-        
-        response.raise_for_status()
-        features = response.json().get("audio_features", [])
-        results.extend([f for f in features if f is not None])
-        
-        time.sleep(0.1)
-    
-    return results
+def search_tracks(artist_names: list, limit: int = 10) -> list:
+    """Busca tracks por nome de artista."""
+    sp = get_spotify_client()
+    tracks = []
 
-def get_artist_info(artist_ids: list, token: str) -> list:
-    """Busca géneros e popularidade de artistas."""
-    url = "https://api.spotify.com/v1/artists"
-    headers = {"Authorization": f"Bearer {token}"}
-    
-    results = []
-    for i in range(0, len(artist_ids), 50):
-        batch = artist_ids[i:i+50]
-        params = {"ids": ",".join(batch)}
-        
-        response = requests.get(url, headers=headers, params=params)
-        
-        if response.status_code == 429:
-            retry_after = int(response.headers.get("Retry-After", 5))
-            time.sleep(retry_after)
-            response = requests.get(url, headers=headers, params=params)
-        
-        response.raise_for_status()
-        artists = response.json().get("artists", [])
-        results.extend([a for a in artists if a is not None])
-        
-        time.sleep(0.1)
-    
-    return results
+    for artist_name in artist_names:
+        results = sp.search(q=artist_name, type="track", limit=limit)
+
+        for item in results["tracks"]["items"]:
+            tracks.append({
+                "track_name": item.get("name"),
+                "artist": item["artists"][0]["name"],
+                "album": item["album"]["name"],
+                "release_date": item["album"]["release_date"],
+                "popularity": item.get("popularity"),
+                "duration_ms": item.get("duration_ms"),
+                "explicit": item.get("explicit"),
+                "track_id": item.get("id")
+            })
+
+        logging.info(f"Fetched {limit} tracks for artist: {artist_name}")
+
+    return tracks
 
 def save_raw(data: list, filename: str, output_path: str = "data/raw/spotify_api/"):
     """Guarda os dados brutos em JSON sem transformações."""
@@ -80,3 +54,29 @@ def save_raw(data: list, filename: str, output_path: str = "data/raw/spotify_api
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     logging.info(f"Saved {len(data)} records to {filepath}")
+
+def get_artists_from_slices(slices_path: str) -> list:
+    """Extrai nomes de artistas únicos dos slices do MPD."""
+    path = Path(slices_path)
+    slices = sorted(path.glob("*.json"))
+    
+    artists = set()
+    
+    for filepath in slices:
+        logging.info(f"Reading slice: {filepath.name}")
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        for playlist in data["playlists"]:
+            for track in playlist["tracks"]:
+                artists.add(track["artist_name"])
+    
+    logging.info(f"Found {len(artists)} unique artists")
+    return list(artists)
+
+def get_artists_from_csv(csv_path: str) -> list:
+    """Extrai nomes de artistas únicos do CSV do MPD."""
+    df = pd.read_csv(csv_path)
+    artists = df["artist_name"].dropna().unique().tolist()
+    logging.info(f"Found {len(artists)} unique artists from CSV")
+    return artists
