@@ -1,10 +1,10 @@
 from extract.spotify_extractor import get_artists_from_csv, search_tracks, save_raw
 
 artists = get_artists_from_csv("data/final_limpo.csv")
+artists = [a for a in artists if "j. cole" not in a]
+artists = artists[:5]
+print(f"Artistas encontrados: {len(artists)}")
 
-# TESTE
-artists = artists[:100]
 tracks = search_tracks(artists)
-
-save_raw(tracks, "tracks_final.csv")
-print(f"Total tracks: {len(tracks)}")
+save_raw(tracks, "tracks_batch_001.csv")
+print(f"Tracks guardadas: {len(tracks)}")
