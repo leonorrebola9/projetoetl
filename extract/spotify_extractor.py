@@ -2,12 +2,13 @@ import logging
 import os
 import time
 from pathlib import Path
-
 import pandas as pd
 import spotipy
 from dotenv import load_dotenv
 from spotipy.oauth2 import SpotifyClientCredentials
 from spotipy.exceptions import SpotifyException
+
+
 
 load_dotenv()
 
@@ -29,9 +30,9 @@ def get_spotify_client():
     )
     return spotipy.Spotify(
         auth_manager=auth_manager,
-        requests_timeout=5,
-        retries=0,           # Impede que o urllib3 tente novamente em loop
-        status_retries=0     # Desliga as tentativas de retry em erros 429
+        requests_timeout=10,
+        retries=0,
+        status_retries=0
     )
 
 
@@ -58,67 +59,72 @@ def search_tracks(artist_names: list) -> list:
     total_artists = len(artist_names)
 
     for i, artist_name in enumerate(artist_names):
-            sucesso = False
-            
-            while not sucesso:
-                try:
-                    print(f"[{i+1}/{total_artists}] A buscar: {artist_name}")
+        sucesso = False
 
-                    result = sp.search(
-                        q=f'artist:{artist_name}',
-                        type="track",
-                        limit=10
-                    )
+        while not sucesso:
+            try:
+                print(f"[{i+1}/{total_artists}] A buscar: {artist_name}")
 
-                    for item in result["tracks"]["items"]:
-                        all_tracks.append({
-                            "artist_searched": artist_name,
-                            "artist": item["artists"][0]["name"],
-                            "track_name": item["name"],
-                            "album": item["album"]["name"],
-                            "release_date": item["album"]["release_date"],
-                            "popularity": item.get("popularity"),
-                            "duration_ms": item.get("duration_ms"),
-                            "explicit": item.get("explicit"),
-                            "track_id": item["id"]
-                        })
+                result = sp.search(
+                    q=f'artist:{artist_name}',
+                    type="track",
+                    limit=10
+                )
 
-                    logging.info(f"{artist_name} -> {len(result['tracks']['items'])} tracks")
-                    time.sleep(1) 
-                    sucesso = True 
+                for item in result["tracks"]["items"]:
+                    all_tracks.append({
+                        "artist_searched": artist_name,
+                        "artist": item["artists"][0]["name"],
+                        "track_name": item["name"],
+                        "album": item["album"]["name"],
+                        "release_date": item["album"]["release_date"],
+                        "popularity": item.get("popularity"),
+                        "duration_ms": item.get("duration_ms"),
+                        "explicit": item.get("explicit"),
+                        "track_id": item["id"]
+                    })
 
-                except SpotifyException as e:
-                    if e.http_status == 429:
-                        espera = 60
-                        if hasattr(e, 'headers') and 'Retry-After' in e.headers:
-                            try:
-                                espera = int(e.headers['Retry-After'])
-                            except ValueError:
-                                pass
-                        
-                        print(f"Rate limit atingido! A dormir por {espera} segundos")
-                        time.sleep(espera)
-                    else:
-                        print(f"Spotify error em {artist_name}: {e}")
-                        logging.error(f"Spotify error {artist_name}: {e}")
-                        break
+                logging.info(f"{artist_name} -> {len(result['tracks']['items'])} tracks")
+                time.sleep(3)  # 3 segundos entre chamadas para evitar rate limit
+                sucesso = True
 
-                except KeyboardInterrupt:
-                    # 1. COLETE SALVA-VIDAS: Se carregares Ctrl+C, ele apanha o aviso!
-                    print(f"\n🚨 Paragem manual detetada no artista {artist_name}! A sair e a guardar o que temos...")
-                    return all_tracks # Devolve logo o que já sacou para o main.py guardar
+            except SpotifyException as e:
+                if e.http_status == 429:
+                    # Tenta ler o Retry-After do header
+                    retry_after = 60
+                    if hasattr(e, 'headers') and e.headers and 'Retry-After' in e.headers:
+                        try:
+                            retry_after = int(e.headers['Retry-After']) + 5  # margem extra
+                        except ValueError:
+                            pass
 
-                except Exception as e:
-                    print(f"Erro inesperado em {artist_name}: {e}")
-                    logging.error(f"Erro inesperado {artist_name}: {e}")
-                    break 
-                    
-            # 2. AUTO-SAVE: A cada 50 artistas processados com sucesso, guarda um backup
-            if (i + 1) % 50 == 0:
-                df_backup = pd.DataFrame(all_tracks)
-                # Guarda na mesma pasta com o nome backup
-                df_backup.to_csv("data/raw/spotify_api/backup_temporario.csv", index=False)
-                print(f"Auto-save feito para {i+1} artistas!")
+                    print(f"Rate limit atingido! A aguardar {retry_after}s antes de continuar...")
+                    logging.warning(f"Rate limit para '{artist_name}', aguardando {retry_after}s")
+                    time.sleep(retry_after)
+
+                    # Recria o cliente para refrescar a sessão
+                    sp = get_spotify_client()
+
+                else:
+                    print(f"Spotify error em '{artist_name}': {e}")
+                    logging.error(f"Spotify error '{artist_name}': {e}")
+                    sucesso = True  # Passa ao próximo artista em caso de outro erro
+
+            except KeyboardInterrupt:
+                print(f"\nParagem manual no artista '{artist_name}'! A guardar progresso...")
+                return all_tracks
+
+            except Exception as e:
+                print(f"Erro inesperado em '{artist_name}': {e}")
+                logging.error(f"Erro inesperado '{artist_name}': {e}")
+                sucesso = True  # Passa ao próximo artista
+
+        # Auto-save a cada 50 artistas
+        if (i + 1) % 50 == 0:
+            df_backup = pd.DataFrame(all_tracks)
+            Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
+            df_backup.to_csv(f"{OUTPUT_PATH}backup_temporario.csv", index=False)
+            print(f"Auto Save feito: {i+1} artistas processados nesta sessão")
 
     return all_tracks
 
