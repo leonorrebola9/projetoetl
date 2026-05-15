@@ -34,7 +34,7 @@ def get_spotify_client():
 
 
 def get_artists_from_csv(csv_path: str) -> list:
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, encoding="latin1")
     artists = (
         df["artist_name"]
         .dropna()
