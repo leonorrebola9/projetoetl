@@ -1,7 +1,6 @@
 from extract.spotify_extractor import get_artists_from_csv, search_tracks, save_raw
 
 artists = get_artists_from_csv("data/final_limpo.csv")
-artists = [a for a in artists if "j. cole" not in a]
 artists = artists[:5]
 print(f"Artistas encontrados: {len(artists)}")
 
