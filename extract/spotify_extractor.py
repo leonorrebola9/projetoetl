@@ -29,12 +29,13 @@ def get_spotify_client():
     )
     return spotipy.Spotify(
         auth_manager=auth_manager,
-        requests_timeout=5
+        requests_timeout=3,
+        retries=1
     )
 
 
 def get_artists_from_csv(csv_path: str) -> list:
-    df = pd.read_csv(csv_path, encoding="latin1")
+    df = pd.read_csv(csv_path, encoding="latin1", sep=';')
     artists = (
         df["artist_name"]
         .dropna()
@@ -69,9 +70,9 @@ def search_tracks(artist_names: list) -> list:
                     "track_name": item["name"],
                     "album": item["album"]["name"],
                     "release_date": item["album"]["release_date"],
-                    "popularity": item["popularity"],
-                    "duration_ms": item["duration_ms"],
-                    "explicit": item["explicit"],
+                    "popularity": item.get("popularity"),
+                    "duration_ms": item.get("duration_ms"),
+                    "explicit": item.get("explicit"),
                     "track_id": item["id"]
                 })
 
