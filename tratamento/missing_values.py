@@ -52,7 +52,35 @@ if restantes.empty:
 else:
     print(restantes)
 
+# --- Remover duplicados ---
+antes = len(df)
+df = df.drop_duplicates(subset=["track_id", "playlist_id"])
+depois = len(df)
+print(f"Duplicados removidos: {antes - depois}")
+
+# --- Normalizar tipos ---
+df["duration_min"] = (df["duration_ms"] / 60000).round(2)
+df["explicit"] = df["explicit"].map({True: 1, False: 0, "True": 1, "False": 0}).fillna(0).astype(int)
+
+# --- Camada gold: só colunas relevantes para análise ---
+colunas_gold = [
+    "track_id", "track_name", "artist_name", "album_name",
+    "playlist_name", "playlist_id", "track_genre",
+    "popularity", "energy", "danceability", "liveness", "valence",
+    "duration_min", "explicit"
+]
+df_gold = df[colunas_gold]
+
+# --- Guardar camada staging (silver) ---
+df.to_csv("data/transformed/silver.csv", index=False)
+print("Camada silver guardada!")
+
+# --- Guardar camada gold ---
+df_gold.to_csv("data/transformed/gold.csv", index=False)
+print("Camada gold guardada!")
+
+
 # --- Guardar resultado ---
-output_path = "final_combinado2_preenchido.csv"
+output_path = "data/transformed/final_combinado_preenchido.csv"
 df.to_csv(output_path, index=False)
 print(f"\nFicheiro guardado em: {output_path}")
