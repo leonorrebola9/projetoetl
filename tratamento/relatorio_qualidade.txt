@@ -1,0 +1,24 @@
+RELATÓRIO DE QUALIDADE DE DADOS
+================================
+
+1. FONTES UTILIZADAS
+- final_limpo.csv — dataset principal (MPD), 8136 linhas
+- tracks_batch_002.csv — dados da Spotify API, 1092 linhas
+
+2. PROBLEMAS ENCONTRADOS
+- playlist_name: valores em branco em várias linhas (vinha do dataset original, mantido)
+- release_date: valores em falta após join, preenchidos com média por artista
+- explicit: valores em falta após join, preenchidos com moda por artista
+- energy, danceability, liveness, valence: sem valores em falta
+- Duplicados: tracks repetidas na mesma playlist removidas, mantidas tracks em playlists diferentes
+
+3. DECISÕES TOMADAS
+- Preenchimento de valores numéricos em falta com média por artista, com fallback para média global
+- Preenchimento de valores de texto com moda por artista, com fallback para moda global
+- Remoção de duplicados por track_id + playlist_id
+- Criação de duration_min a partir de duration_ms
+- explicit normalizado para 0/1
+
+4. RESULTADO FINAL
+- Camada silver: 8022 linhas, 18 colunas
+- Camada gold: 8022 linhas, 14 colunas
