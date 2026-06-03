@@ -1,8 +1,10 @@
-# Projeto ETL — Spotify
+# Projeto ETL: Música e Entretenimento (Spotify)
 
 ## Autores
-   - **Nome**: Adriana Abreu, 53672 (Github: adriana1005 )
+   - **Nome**: Adriana Abreu, 53672 (Github: adriana1005)
    - **Nome**: Leonor Rebola, 53663 (Github: leonorrebola9)
+   - **Curso**: Inteligência Artificial e Ciência de Dados
+   - **UC**: Extração e Transformação de Dados
 
 ## Descrição do Trabalho
 Este projeto implementa um pipeline ETL para análise de dados musicais, combinando dados do Million Playlist Dataset (MPD) e do Spotify Tracks Dataset do Kaggle com dados extraídos da Spotify Web API, com o objetivo de gerar insights sobre popularidade, géneros musicais e características das tracks.
