@@ -10,6 +10,7 @@ Este projeto implementa um pipeline ETL para análise de dados musicais, combina
 ---
 
 ## Estrutura do Projeto
+```
 projetoetl/
 ├── config/
 ├── data/
@@ -37,6 +38,7 @@ projetoetl/
 ├── main.py
 ├── requirements.txt
 └── README.md
+```
 
 ---
 
